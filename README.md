@@ -1,5 +1,7 @@
 # morphy
 
+<img src="Sources/MorphyApp/Resources/logo-color.png" alt="morphy chameleon logo" width="128" height="128">
+
 morphy is a small Mac app for the moment when you have a HEIC photo and need a JPEG, PNG, or WebP instead. It sits in your menu bar, watches a folder for new photos, and makes a converted copy without changing the original. You can also pick files yourself when you need to convert something that's already on your Mac.
 
 Everything happens locally. There are no uploads, accounts, subscriptions, or analytics.
