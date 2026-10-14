@@ -1,0 +1,23 @@
+.DS_Store
+/.build
+# Keep generated files private except the latest downloadable build.
+/dist/*
+!/dist/morphy-0.3.3-apple-silicon.zip
+/artifacts
+/Packages
+xcuserdata/
+DerivedData/
+.swiftpm/configuration/registries.json
+.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+.netrc
+
+# Local Codex configuration and agent instructions
+.codex/
+.agents/
+AGENTS.md
+AGENTS.override.md
+
+# Keep working documents local, but retain the public README and license notices
+/*.md
+!/README.md
+!/THIRD_PARTY_LICENSES.md

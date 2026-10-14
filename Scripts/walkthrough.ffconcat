@@ -1,0 +1,14 @@
+ffconcat version 1.0
+file '../artifacts/previews/menu-bar-video.png'
+duration 4
+file '../artifacts/previews/home.png'
+duration 4
+file '../artifacts/previews/export.png'
+duration 4
+file '../artifacts/previews/complete.png'
+duration 4
+file '../artifacts/previews/history.png'
+duration 4
+file '../artifacts/previews/settings.png'
+duration 4
+file '../artifacts/previews/settings.png'
