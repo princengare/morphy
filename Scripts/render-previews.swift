@@ -47,10 +47,19 @@ struct PreviewExporter {
         try await render(RootPixelAppView().environmentObject(state), name: "settings-minimum", in: directory, size: CGSize(width: 720, height: 720))
         state.selectedFormat = .jpeg
         try await render(MenuBarRootView().environmentObject(state), name: "menu-bar", in: directory, size: CGSize(width: 232, height: 128))
-        try await render(MenuBarRootView(changingInitiallyExpanded: true).environmentObject(state),
+        try await render(MenuBarRootView(morphingInitiallyExpanded: true).environmentObject(state),
             name: "menu-bar-expanded", in: directory, size: CGSize(width: 232, height: 244))
-        try await render(MenuBarRootView(changingInitiallyExpanded: true).environmentObject(state),
+        try await render(MenuBarRootView(morphingInitiallyExpanded: true).environmentObject(state),
             name: "menu-bar-dark", in: directory, size: CGSize(width: 232, height: 244), colorScheme: .dark)
+        let collapsedMenu = try Data(contentsOf: directory.appendingPathComponent("menu-bar.png"))
+        let expandedMenu = try Data(contentsOf: directory.appendingPathComponent("menu-bar-expanded.png"))
+        let openRow = CGRect(x: 0, y: 0, width: 232, height: 40)
+        guard try croppedPixels(in: collapsedMenu, rect: openRow, canvasWidth: 232)
+            == croppedPixels(in: expandedMenu, rect: openRow, canvasWidth: 232) else {
+            throw NSError(domain: "MorphyPreview", code: 13,
+                userInfo: [NSLocalizedDescriptionKey: "Open morphy moved when the disclosure expanded."])
+        }
+        print("Verified the menu's open morphy row stays fixed when morphing expands.")
         try await render(PixelFolderButton(title: "A very long incoming photographs folder name") {},
             name: "folder-button-long-name", in: directory, size: CGSize(width: 200, height: 40))
 
@@ -74,7 +83,7 @@ struct PreviewExporter {
     static func render<V: View>(_ view: V, name: String, in directory: URL, size: CGSize = CGSize(width: 760, height: 760),
         colorScheme: ColorScheme = .light, settlingTime: TimeInterval = 0.2) async throws {
         let hostingView = NSHostingView(rootView: view
-            .frame(width: size.width, height: size.height)
+            .frame(width: size.width, height: size.height, alignment: .topLeading)
             .environment(\.colorScheme, colorScheme)
             .background(colorScheme == .dark ? Color(nsColor: .windowBackgroundColor) : Color.white))
         let window = NSWindow(contentRect: CGRect(origin: .zero, size: size),
@@ -186,6 +195,27 @@ struct PreviewExporter {
             throw NSError(domain: "MorphyPreview", code: 1)
         }
         return data
+    }
+
+    static func croppedPixels(in data: Data, rect: CGRect, canvasWidth: CGFloat) throws -> Data {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+            let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+            throw NSError(domain: "MorphyPreview", code: 14)
+        }
+        let scale = CGFloat(image.width) / canvasWidth
+        let region = CGRect(x: rect.minX * scale, y: rect.minY * scale,
+            width: rect.width * scale, height: rect.height * scale).integral
+        guard let crop = image.cropping(to: region) else { throw NSError(domain: "MorphyPreview", code: 14) }
+        var pixels = [UInt8](repeating: 0, count: crop.width * crop.height * 4)
+        try pixels.withUnsafeMutableBytes { bytes in
+            guard let context = CGContext(data: bytes.baseAddress, width: crop.width, height: crop.height,
+                bitsPerComponent: 8, bytesPerRow: crop.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+                throw NSError(domain: "MorphyPreview", code: 14)
+            }
+            context.draw(crop, in: CGRect(x: 0, y: 0, width: crop.width, height: crop.height))
+        }
+        return Data(pixels)
     }
 
     @MainActor
@@ -396,6 +426,8 @@ struct PreviewExporter {
         let clock = ContinuousClock()
         let started = clock.now
         var snapshots: [Set<Data>] = Array(repeating: [], count: 4)
+        var sampledFrames: [[Data]] = Array(repeating: [], count: 4)
+        var leafSnapshots: [[Set<Data>]] = Array(repeating: Array(repeating: [], count: 3), count: 4)
         for frame in 0..<144 {
             let scene = frame / 36
             state.active = scene == 0 ? nil : HomeNavigationSection.allCases[scene - 1]
@@ -406,11 +438,26 @@ struct PreviewExporter {
             hosting.layoutSubtreeIfNeeded()
             let data = try capture(hosting)
             snapshots[scene].insert(data)
+            if frame % 36 >= 6 && frame % 6 == 0 { sampledFrames[scene].append(data) }
             try data.write(to: frames.appendingPathComponent(String(format: "frame-%03d.png", frame)))
         }
-        guard snapshots.allSatisfy({ $0.count > 1 }) else {
-            throw NSError(domain: "MorphyPreview", code: 10,
-                userInfo: [NSLocalizedDescriptionKey: "A home animation scene did not move."])
+        for scene in 0..<4 {
+            guard snapshots[scene].count > 1 else {
+                throw NSError(domain: "MorphyPreview", code: 10,
+                    userInfo: [NSLocalizedDescriptionKey: "Home animation scene \(scene) did not move."])
+            }
+            for index in 0..<3 {
+                let section = HomeNavigationSection.allCases[index]
+                let rect = HomeNavigationLayout(section: section, canvasSize: size).leafFrame
+                for data in sampledFrames[scene] {
+                    leafSnapshots[scene][index].insert(try croppedPixels(in: data, rect: rect, canvasWidth: size.width))
+                }
+                let expectedPaused = scene > 0 && index == scene - 1
+                guard expectedPaused ? leafSnapshots[scene][index].count == 1 : leafSnapshots[scene][index].count > 1 else {
+                    throw NSError(domain: "MorphyPreview", code: 15,
+                        userInfo: [NSLocalizedDescriptionKey: "Hover did not pause only its matching leaf, or the leaf did not resume."])
+                }
+            }
         }
         state.reduceMotion = true
         RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.2))
@@ -431,7 +478,7 @@ struct PreviewExporter {
             throw NSError(domain: "MorphyPreview", code: 12,
                 userInfo: [NSLocalizedDescriptionKey: "Disabling leaf animation did not stop idle wind."])
         }
-        print("Verified wind, three active rows, Reduce Motion, and disabled wind. Captured 144 frames at 18 fps.")
+        print("Verified shared wind, per-action leaf pause/resume, Reduce Motion, and disabled wind. Captured 144 frames at 18 fps.")
     }
 }
 
@@ -462,7 +509,7 @@ private struct HomeAnimationPreview: View {
                 ForEach(HomeNavigationSection.allCases) { section in
                     HomeNavigationBand(section: section, canvasSize: geometry.size,
                         isHovered: state.active == section, animateLeaves: state.animateLeaves,
-                        reduceMotion: state.reduceMotion, onHoverChanged: { _ in }) {}
+                        reduceMotion: state.reduceMotion) {}
                         .frame(width: geometry.size.width, height: geometry.size.height * section.bandHeight)
                         .position(x: geometry.size.width / 2, y: geometry.size.height * section.bandCenter)
                 }

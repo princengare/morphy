@@ -1,11 +1,12 @@
 import Foundation
+import SwiftUI
 import Testing
 @testable import MorphyApp
 
 @Suite("Pixel navigation and animation")
 @MainActor
 struct PixelPresentationTests {
-    @Test("Home bands cover the full height without gaps or overlapping interiors")
+    @Test("Home actions retain their destinations and share one wind cycle")
     func homeNavigationBands() {
         let sections = HomeNavigationSection.allCases
         #expect(sections.first?.bandTop == 0)
@@ -21,8 +22,9 @@ struct PixelPresentationTests {
             #expect(sections.filter { y >= $0.bandTop && y < $0.bandBottom }.count == 1)
         }
         #expect(sections.map(\.route) == [.export, .history, .settings])
-        #expect(Set(sections.map(\.windRate)).count == 3)
-        #expect(Set(sections.map(\.windPhase)).count == 3)
+        #expect(Set(sections.map(\.windRate)).count == 1)
+        #expect(Set(sections.map(\.windRotation)).count == 3)
+        #expect(sections.allSatisfy { $0.windRotation > 0 && $0.windRotation < 1 })
     }
 
     @Test("Wind changes only four or five outline pixels and keeps the branch fixed")
@@ -35,7 +37,7 @@ struct PixelPresentationTests {
             var previous = idle
             for step in 1...360 {
                 let rows = PixelLeafWind.rows(elapsed: Double(step) / 18,
-                    rate: section.windRate, phase: section.windPhase)
+                    rate: section.windRate, phase: 0)
                 #expect(rows.count == 9)
                 #expect(rows.allSatisfy { $0.count == 14 })
                 #expect(coordinates(of: "B", in: rows) == branches)
@@ -49,6 +51,66 @@ struct PixelPresentationTests {
         }
         #expect(frames.count == 5)
         #expect(PixelLeafWind.rows(elapsed: 0, rate: 2, phase: 4) == idle)
+    }
+
+    @Test("Only green leaf pixels are interactive, including during wind")
+    func preciseLeafHitAreas() {
+        for size in [CGSize(width: 720, height: 720), CGSize(width: 760, height: 760), CGSize(width: 1000, height: 720)] {
+            for section in HomeNavigationSection.allCases {
+                let layout = HomeNavigationLayout(section: section, canvasSize: size)
+                let leaf = layout.leafFrame
+                let cell = floor(min(leaf.width / 14, leaf.height / 9))
+                let origin = CGPoint(x: leaf.midX - cell * 7, y: leaf.midY - cell * 4.5)
+                let branchPoints = PixelLeafWind.baseRows.enumerated().flatMap { y, row in
+                    row.enumerated().compactMap { x, pixel -> CGPoint? in
+                        guard pixel == "B" else { return nil }
+                        return CGPoint(x: origin.x + (CGFloat(x) + 0.5) * cell,
+                            y: origin.y + (CGFloat(y) + 0.5) * cell)
+                    }
+                }
+                for step in 0...24 {
+                    let shape = layout.leafShape(elapsed: Double(step) / 6).path(in: leaf)
+                    #expect(!shape.isEmpty)
+                    #expect(branchPoints.allSatisfy { !shape.contains($0) })
+                    for y in stride(from: 2.0, to: size.height, by: 20) {
+                        for x in stride(from: 2.0, to: size.width * 0.25, by: 20) {
+                            #expect(!shape.contains(CGPoint(x: x, y: y)))
+                        }
+                    }
+                    #expect(!shape.contains(CGPoint(x: size.width * 0.7, y: leaf.midY)))
+                    #expect(!shape.contains(CGPoint(x: size.width * 0.98, y: leaf.midY)))
+                }
+                let idleShape = layout.leafShape(elapsed: 0).path(in: leaf)
+                for (y, row) in PixelLeafWind.baseRows.enumerated() {
+                    for (x, pixel) in row.enumerated() {
+                        let center = CGPoint(x: origin.x + (CGFloat(x) + 0.5) * cell,
+                            y: origin.y + (CGFloat(y) + 0.5) * cell)
+                        #expect(idleShape.contains(center) == (pixel == "G"))
+                    }
+                }
+            }
+        }
+    }
+
+    @Test("Icon hit paths exclude transparent pixels and use the actual animated frame")
+    func preciseIconHitAreas() {
+        for section in HomeNavigationSection.allCases {
+            let frame = HomeNavigationLayout(section: section, canvasSize: CGSize(width: 760, height: 760)).iconFrame
+            let cell = floor(min(frame.width / 12, frame.height / 10))
+            let origin = CGPoint(x: frame.midX - cell * 6, y: frame.midY - cell * 5)
+            for step in 0...24 {
+                let rows = PixelIcon(kind: section.icon, animationElapsed: Double(step) / 6).rows
+                let shape = PixelSpriteShape(rows: rows, pixel: "W").path(in: frame)
+                for (y, row) in rows.enumerated() {
+                    for (x, pixel) in row.enumerated() {
+                        let center = CGPoint(x: origin.x + (CGFloat(x) + 0.5) * cell,
+                            y: origin.y + (CGFloat(y) + 0.5) * cell)
+                        #expect(shape.contains(center) == (pixel == "W"))
+                    }
+                }
+                #expect(!shape.contains(CGPoint(x: frame.minX, y: frame.minY)))
+            }
+        }
     }
 
     @Test("Icons retain fixed bounds and use faster motion")

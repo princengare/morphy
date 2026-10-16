@@ -6,9 +6,9 @@ morphy is a small Mac app for the moment when you have a HEIC photo and need a J
 
 Everything happens locally. There are no uploads, accounts, subscriptions, or analytics.
 
-The interface is a pixel-art tree, with leaves for Export, History, and Settings. The green chameleon is morphy; its monochrome version lives in the menu bar. Each leaf-and-icon row is clickable across its full width. Hovering anywhere in the row highlights the leaf and animates its icon, while idle leaves flex in the wind at slightly different rates. Settings switches and the folder button use the same pixel-art style. These effects respect macOS Reduce Motion.
+The interface is a pixel-art tree, with leaves for Export, History, and Settings. The green chameleon is morphy; its monochrome version lives in the menu bar. Click a leaf or its matching icon to open that page. The trunk, brown stems, and empty background aren't controls. Leaves share a gentle wind cycle with slightly different sway amounts; hovering over a leaf or its icon pauses that leaf and animates its icon. Keyboard focus clearly marks the selected control. Settings switches and the folder button use the same pixel-art style. These effects respect macOS Reduce Motion.
 
-**Current version: 0.3.3.** This is a working development build, not an App Store release.
+**Current version: 0.3.4.** This is a working development build, not an App Store release.
 
 ## What It Does
 
@@ -35,7 +35,11 @@ The packaged build is for Macs only. It does not run on iPhone, iPad, Android, o
 
 The latest packaged app is included in the [morphy GitHub repository](https://github.com/princengare/morphy), so you don't need to build it yourself.
 
-1. Open [morphy-0.3.3-apple-silicon.zip](dist/morphy-0.3.3-apple-silicon.zip) on GitHub and click **Download raw file**. You can also find it by opening the repository's `dist` folder. Download the app ZIP, not GitHub's **Download ZIP** source-code archive.
+[Download morphy-0.3.4-apple-silicon.zip](https://github.com/princengare/morphy/raw/refs/heads/main/dist/morphy-0.3.4-apple-silicon.zip)
+
+Only the current build is kept in the repository's `dist` folder.
+
+1. Click the download link above to get the app ZIP. If you're browsing `dist` on GitHub, open the ZIP and click **Download raw file**. Don't choose GitHub's **Download ZIP**, which downloads the source code instead of the app.
 2. Double-click the ZIP to extract `Morphy.app`.
 3. Drag `Morphy.app` into your Applications folder.
 4. Open Morphy from Applications.
@@ -45,7 +49,7 @@ morphy runs from the menu bar, so you won't see a normal Dock icon. Closing its 
 
 Finder shows the installed app as **Morphy**. The interface and menu labels still use lowercase **morphy**.
 
-The menu has three entries: **changing**, **open morphy**, and **quit morphy**. Hover over changing to reveal automatic conversion, output format, and quality settings. You can also click it to keep those controls open while using the keyboard.
+The menu has three entries: **open morphy**, **morphing**, and **quit morphy**. Click morphing to show automatic conversion, output format, and quality settings; click it again to hide them. Hovering doesn't expand it. Open morphy stays at the top, and quit morphy stays below a divider at the bottom.
 
 If you cloned the repository, the same installable ZIP is in `dist`. To install on another compatible Mac, transfer that ZIP using AirDrop, a USB drive, or another file transfer method.
 
@@ -81,7 +85,7 @@ On the conversion screen, morphy cycles through colors for at least three second
 
 | Area | Implementation |
 | --- | --- |
-| Version | 0.3.3 |
+| Version | 0.3.4 |
 | Platform | macOS 14 or later; packaged for Apple silicon (`arm64`) |
 | Language and build | Swift, Swift 6.2 toolchain, Swift Package Manager |
 | Interface | Native SwiftUI, with AppKit for file pickers, Finder actions, and app integration |
@@ -121,9 +125,11 @@ Create an installable app and ZIP on an Apple silicon Mac:
 zsh Scripts/package-macos.sh
 ```
 
-The packaging script builds a release binary, includes the artwork and WebP license, applies and verifies a local signature, and writes `dist/Morphy.app` and `dist/morphy-0.3.3-apple-silicon.zip`.
+The packaging script builds a release binary, includes the artwork and WebP license, applies and verifies a local signature, and writes `dist/Morphy.app` and `dist/morphy-0.3.4-apple-silicon.zip`.
 
-The newest ZIP is deliberately allowed through `.gitignore` so it can be committed and downloaded from GitHub. Other generated files and older, untracked builds stay ignored. After packaging succeeds, the script updates that ZIP exception and the version and package links in this README. Commit the new ZIP together with `.gitignore` and `README.md`, then push them to GitHub to publish the download. If a previous ZIP was already committed, remove its old repository entry when publishing its replacement; ignoring it does not remove a tracked file.
+The newest ZIP is deliberately allowed through `.gitignore` so it can be committed and downloaded from GitHub. Other generated files and older local builds stay ignored. After packaging succeeds, the script updates that ZIP exception and the version and package links in this README.
+
+When publishing an update, commit the app's source changes, new ZIP, `.gitignore`, and `README.md` together. Remove the previous ZIP from Git's index with `git rm --cached` so it stays on your Mac but is no longer offered on the current GitHub branch. Push the commit to publish the replacement download. Older versions remain in Git history.
 
 Internal development notes stay local and are not included in the public repository.
 

@@ -2,7 +2,7 @@
 /.build
 # Keep generated files private except the latest downloadable build.
 /dist/*
-!/dist/morphy-0.3.3-apple-silicon.zip
+!/dist/morphy-0.3.4-apple-silicon.zip
 /artifacts
 /Packages
 xcuserdata/

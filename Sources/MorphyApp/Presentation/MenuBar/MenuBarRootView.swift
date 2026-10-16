@@ -5,22 +5,23 @@ import SwiftUI
 struct MenuBarRootView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(\.openWindow) private var openWindow
-    var changingInitiallyExpanded = false
+    var morphingInitiallyExpanded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            ChangingMenuSection(initiallyExpanded: changingInitiallyExpanded)
             menuAction("open morphy", symbol: "macwindow") {
                 appState.navigate(.home)
                 openWindow(id: "home")
                 NSApp.activate(ignoringOtherApps: true)
             }
+            MorphingMenuSection(initiallyExpanded: morphingInitiallyExpanded)
             Divider().padding(.vertical, 3)
             menuAction("quit morphy", symbol: "power") { NSApp.terminate(nil) }
         }
         .padding(10)
         .frame(width: 232)
         .fixedSize(horizontal: false, vertical: true)
+        .accessibilityIdentifier("menu-bar")
     }
 
     private func menuAction(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
@@ -32,29 +33,26 @@ struct MenuBarRootView: View {
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 8)
+        .accessibilityIdentifier(title)
     }
 }
 
-struct ChangingMenuSection: View {
+struct MorphingMenuSection: View {
     @EnvironmentObject private var appState: AppState
-    @State private var isHovered = false
-    @State private var isPinned: Bool
-    @State private var isSelectingOption = false
+    @State private var isExpanded: Bool
 
     init(initiallyExpanded: Bool = false) {
-        _isPinned = State(initialValue: initiallyExpanded)
+        _isExpanded = State(initialValue: initiallyExpanded)
     }
-
-    private var isExpanded: Bool { isHovered || isPinned || isSelectingOption }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Button { isPinned.toggle() } label: {
+            Button { isExpanded.toggle() } label: {
                 HStack(spacing: 8) {
                     RoundedRectangle(cornerRadius: 1)
                         .fill(appState.monitoringEnabled && !appState.monitoringNeedsAccess ? Color.green : .secondary)
                         .frame(width: 7, height: 7)
-                    Text("changing")
+                    Text("morphing")
                         .font(.system(size: 13, weight: .medium))
                     Spacer(minLength: 0)
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
@@ -66,9 +64,10 @@ struct ChangingMenuSection: View {
                 .contentShape(Capsule())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("changing")
+            .accessibilityLabel("morphing")
+            .accessibilityIdentifier("morphing")
             .accessibilityValue(isExpanded ? "expanded" : "collapsed")
-            .accessibilityHint("Show automatic conversion, format, and quality controls")
+            .accessibilityHint("Click to show or hide automatic conversion, format, and quality controls")
             .help(appState.statusText)
 
             if isExpanded {
@@ -99,14 +98,6 @@ struct ChangingMenuSection: View {
                 .padding(.bottom, 10)
             }
         }
-        .contentShape(Rectangle())
-        .onHover { isHovered = $0 }
-        .onExitCommand { isPinned = false }
-        .onReceive(NotificationCenter.default.publisher(for: NSMenu.didBeginTrackingNotification)) { _ in
-            isSelectingOption = true
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSMenu.didEndTrackingNotification)) { _ in
-            isSelectingOption = false
-        }
+        .onExitCommand { isExpanded = false }
     }
 }
