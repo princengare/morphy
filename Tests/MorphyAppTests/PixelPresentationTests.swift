@@ -53,8 +53,40 @@ struct PixelPresentationTests {
         #expect(PixelLeafWind.rows(elapsed: 0, rate: 2, phase: 4) == idle)
     }
 
-    @Test("Only green leaf pixels are interactive, including during wind")
-    func preciseLeafHitAreas() {
+    @Test("Every horizontal row is interactive right up to, but never inside, the trunk")
+    func rowHitAreasExcludeTrunk() {
+        for size in [CGSize(width: 720, height: 720), CGSize(width: 760, height: 760), CGSize(width: 1000, height: 720)] {
+            let layouts = HomeNavigationSection.allCases.map { HomeNavigationLayout(section: $0, canvasSize: size) }
+            let trunkWidth = size.width * 0.25
+            for layout in layouts {
+                let frame = layout.interactiveFrame
+                #expect(frame.minX == trunkWidth)
+                #expect(frame.maxX == size.width)
+                #expect(frame.minY == layout.bandFrame.minY)
+                #expect(frame.maxY == layout.bandFrame.maxY)
+                #expect(!frame.contains(CGPoint(x: trunkWidth - 0.01, y: frame.midY)))
+                #expect(frame.contains(CGPoint(x: trunkWidth, y: frame.midY)))
+                #expect(frame.contains(CGPoint(x: size.width - 0.01, y: frame.midY)))
+                #expect(frame.contains(CGPoint(x: layout.leafFrame.midX, y: layout.leafFrame.midY)))
+                #expect(frame.contains(CGPoint(x: layout.iconFrame.midX, y: layout.iconFrame.midY)))
+                #expect(frame.contains(CGPoint(x: size.width * 0.7, y: frame.midY)))
+                #expect(frame.contains(CGPoint(x: size.width * 0.98, y: frame.midY)))
+            }
+            for y in stride(from: 0.5, to: size.height, by: 13) {
+                for x in stride(from: 0.5, to: size.width, by: 13) {
+                    let matches = layouts.filter { $0.interactiveFrame.contains(CGPoint(x: x, y: y)) }
+                    #expect(matches.count == (x < trunkWidth ? 0 : 1))
+                }
+            }
+            for boundary in layouts.dropFirst().map(\.bandFrame.minY) {
+                let point = CGPoint(x: trunkWidth + 1, y: boundary)
+                #expect(layouts.filter { $0.interactiveFrame.contains(point) }.count == 1)
+            }
+        }
+    }
+
+    @Test("Wind preserves leaf transparency and never paints over the fixed branch or trunk")
+    func leafArtworkBounds() {
         for size in [CGSize(width: 720, height: 720), CGSize(width: 760, height: 760), CGSize(width: 1000, height: 720)] {
             for section in HomeNavigationSection.allCases {
                 let layout = HomeNavigationLayout(section: section, canvasSize: size)
@@ -92,8 +124,8 @@ struct PixelPresentationTests {
         }
     }
 
-    @Test("Icon hit paths exclude transparent pixels and use the actual animated frame")
-    func preciseIconHitAreas() {
+    @Test("Icon artwork keeps transparent pixels and uses the actual animated frame")
+    func iconArtworkBounds() {
         for section in HomeNavigationSection.allCases {
             let frame = HomeNavigationLayout(section: section, canvasSize: CGSize(width: 760, height: 760)).iconFrame
             let cell = floor(min(frame.width / 12, frame.height / 10))

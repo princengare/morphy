@@ -129,11 +129,11 @@ struct HomeNavigationBand: View {
     let animateLeaves: Bool
     let reduceMotion: Bool
     let action: () -> Void
-    @State private var hoveredControls: Set<HomeNavigationControl> = []
+    @State private var isPointerInside = false
     @State private var frozenWindTime: TimeInterval?
-    @FocusState private var focusedControl: HomeNavigationControl?
+    @FocusState private var isFocused: Bool
 
-    private var isHighlighted: Bool { isHovered || !hoveredControls.isEmpty || focusedControl != nil }
+    private var isHighlighted: Bool { isHovered || isPointerInside || isFocused }
 
     var body: some View {
         let layout = HomeNavigationLayout(section: section, canvasSize: canvasSize)
@@ -146,17 +146,39 @@ struct HomeNavigationBand: View {
                 ZStack {
                     PixelSprite(rows: PixelLeafWind.baseRows, palette: ["B": PixelPalette.trunk])
                         .allowsHitTesting(false)
-                    leafButton(shape: shape, size: layout.leafFrame.size)
+                    shape.fill(isHighlighted ? PixelPalette.leafHighlight : PixelPalette.leaf,
+                        style: FillStyle(antialiased: false))
                 }
             }
             .frame(width: layout.leafFrame.width, height: layout.leafFrame.height)
             .position(x: layout.leafFrame.midX, y: layout.leafFrame.midY - layout.bandFrame.minY)
+            .allowsHitTesting(false)
 
-            HomeNavigationIconButton(section: section, isActive: isHighlighted, reduceMotion: reduceMotion,
-                size: layout.iconFrame.width, focus: $focusedControl,
-                onHoverChanged: { setHovered(.icon, hovering: $0) }, action: action)
+            HoverAnimatedPixelIcon(kind: section.icon, isActive: isHighlighted, reduceMotion: reduceMotion)
                 .frame(width: layout.iconFrame.width, height: layout.iconFrame.height)
                 .position(x: layout.iconFrame.midX, y: layout.iconFrame.midY - layout.bandFrame.minY)
+                .allowsHitTesting(false)
+
+            // Only this right-of-trunk rectangle owns pointer and keyboard interaction.
+            Button(action: action) {
+                Color.clear
+                    .frame(width: layout.interactiveFrame.width, height: layout.interactiveFrame.height)
+                    .overlay {
+                        if isFocused {
+                            Rectangle().inset(by: 4).stroke(.white,
+                                style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
+                                .allowsHitTesting(false)
+                        }
+                    }
+                    .contentShape([.interaction, .accessibility], Rectangle())
+            }
+            .buttonStyle(.plain)
+            .focusEffectDisabled()
+            .focused($isFocused)
+            .onHover { isPointerInside = $0 }
+            .accessibilityLabel(section.title)
+            .accessibilityIdentifier("home-\(section.rawValue)-row")
+            .position(x: layout.interactiveFrame.midX, y: layout.interactiveFrame.midY - layout.bandFrame.minY)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onChange(of: isHighlighted, initial: true) { _, highlighted in
@@ -164,39 +186,6 @@ struct HomeNavigationBand: View {
         }
     }
 
-    private func leafButton(shape: PixelSpriteShape, size: CGSize) -> some View {
-        Button(action: action) {
-            shape.fill(isHighlighted ? PixelPalette.leafHighlight : PixelPalette.leaf,
-                style: FillStyle(antialiased: false))
-                .frame(width: size.width, height: size.height)
-                .overlay {
-                    if focusedControl == .leaf {
-                        shape.stroke(.white, lineWidth: 3).allowsHitTesting(false)
-                    }
-                }
-                .contentShape([.interaction, .accessibility], shape)
-        }
-        .buttonStyle(.plain)
-        .focusEffectDisabled()
-        .focused($focusedControl, equals: .leaf)
-        .onContinuousHover { phase in
-            switch phase {
-            case .active(let point): setHovered(.leaf, hovering: shape.path(in: CGRect(origin: .zero, size: size)).contains(point))
-            case .ended: setHovered(.leaf, hovering: false)
-            }
-        }
-        .accessibilityLabel(section.title)
-        .accessibilityIdentifier("home-\(section.rawValue)-leaf")
-    }
-
-    private func setHovered(_ control: HomeNavigationControl, hovering: Bool) {
-        if hovering { hoveredControls.insert(control) }
-        else { hoveredControls.remove(control) }
-    }
-}
-
-enum HomeNavigationControl: Hashable {
-    case leaf, icon
 }
 
 struct HomeNavigationLayout {
@@ -206,6 +195,12 @@ struct HomeNavigationLayout {
     var bandFrame: CGRect {
         CGRect(x: 0, y: canvasSize.height * section.bandTop,
             width: canvasSize.width, height: canvasSize.height * section.bandHeight)
+    }
+
+    var interactiveFrame: CGRect {
+        let trunkWidth = canvasSize.width * 0.25
+        return CGRect(x: trunkWidth, y: bandFrame.minY,
+            width: canvasSize.width - trunkWidth, height: bandFrame.height)
     }
 
     var leafFrame: CGRect {
@@ -225,50 +220,6 @@ struct HomeNavigationLayout {
         PixelSpriteShape(rows: PixelLeafWind.rows(elapsed: elapsed, rate: section.windRate, phase: 0),
             pixel: "G", rotationDegrees: elapsed == 0 ? 0 : sin(elapsed * section.windRate) * section.windRotation,
             excluding: "B")
-    }
-}
-
-struct HomeNavigationIconButton: View {
-    let section: HomeNavigationSection
-    let isActive: Bool
-    let reduceMotion: Bool
-    let size: CGFloat
-    let focus: FocusState<HomeNavigationControl?>.Binding
-    let onHoverChanged: (Bool) -> Void
-    let action: () -> Void
-    @State private var startedAt = Date()
-
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 18, paused: !isActive || reduceMotion)) { context in
-            let elapsed = isActive && !reduceMotion ? max(0, context.date.timeIntervalSince(startedAt)) : 0
-            let shape = PixelSpriteShape(rows: PixelIcon(kind: section.icon, animationElapsed: elapsed).rows, pixel: "W")
-            Button(action: action) {
-                shape.fill(.white, style: FillStyle(antialiased: false))
-                    .frame(width: size, height: size)
-                    .overlay {
-                        if focus.wrappedValue == .icon {
-                            Rectangle().inset(by: 2).stroke(.white, style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
-                                .allowsHitTesting(false)
-                        }
-                    }
-                    .contentShape([.interaction, .accessibility], shape)
-            }
-            .buttonStyle(.plain)
-            .focusEffectDisabled()
-            .focused(focus, equals: .icon)
-            .onContinuousHover { phase in
-                switch phase {
-                case .active(let point):
-                    onHoverChanged(shape.path(in: CGRect(x: 0, y: 0, width: size, height: size)).contains(point))
-                case .ended: onHoverChanged(false)
-                }
-            }
-            .accessibilityLabel(section.title)
-            .accessibilityIdentifier("home-\(section.rawValue)-icon")
-        }
-        .onChange(of: isActive) { _, active in
-            if active { startedAt = Date() }
-        }
     }
 }
 

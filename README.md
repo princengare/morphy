@@ -6,9 +6,9 @@ morphy is a small Mac app for the moment when you have a HEIC photo and need a J
 
 Everything happens locally. There are no uploads, accounts, subscriptions, or analytics.
 
-The interface is a pixel-art tree, with leaves for Export, History, and Settings. The green chameleon is morphy; its monochrome version lives in the menu bar. Click a leaf or its matching icon to open that page. The trunk, brown stems, and empty background aren't controls. Leaves share a gentle wind cycle with slightly different sway amounts; hovering over a leaf or its icon pauses that leaf and animates its icon. Keyboard focus clearly marks the selected control. Settings switches and the folder button use the same pixel-art style. These effects respect macOS Reduce Motion.
+The interface is a pixel-art tree, with leaves for Export, History, and Settings. The green chameleon is morphy; its monochrome version lives in the menu bar. Each horizontal row is clickable anywhere to the right of the trunk, including the leaf, icon, stems, and space between them. The trunk stays decorative and doesn't react to hovering or clicks. Leaves share a gentle wind cycle with slightly different sway amounts; hovering anywhere in a row highlights and pauses only its leaf and animates its icon. Each row also has a clear keyboard focus outline. Settings switches and the folder button use the same pixel-art style. These effects respect macOS Reduce Motion.
 
-**Current version: 0.3.4.** This is a working development build, not an App Store release.
+**Current version: 0.3.5.** This is a working development build, not an App Store release.
 
 ## What It Does
 
@@ -35,7 +35,7 @@ The packaged build is for Macs only. It does not run on iPhone, iPad, Android, o
 
 The latest packaged app is included in the [morphy GitHub repository](https://github.com/princengare/morphy), so you don't need to build it yourself.
 
-[Download morphy-0.3.4-apple-silicon.zip](https://github.com/princengare/morphy/raw/refs/heads/main/dist/morphy-0.3.4-apple-silicon.zip)
+[Download morphy-0.3.5-apple-silicon.zip](https://github.com/princengare/morphy/raw/refs/heads/main/dist/morphy-0.3.5-apple-silicon.zip)
 
 Only the current build is kept in the repository's `dist` folder.
 
@@ -85,7 +85,7 @@ On the conversion screen, morphy cycles through colors for at least three second
 
 | Area | Implementation |
 | --- | --- |
-| Version | 0.3.4 |
+| Version | 0.3.5 |
 | Platform | macOS 14 or later; packaged for Apple silicon (`arm64`) |
 | Language and build | Swift, Swift 6.2 toolchain, Swift Package Manager |
 | Interface | Native SwiftUI, with AppKit for file pickers, Finder actions, and app integration |
@@ -125,7 +125,7 @@ Create an installable app and ZIP on an Apple silicon Mac:
 zsh Scripts/package-macos.sh
 ```
 
-The packaging script builds a release binary, includes the artwork and WebP license, applies and verifies a local signature, and writes `dist/Morphy.app` and `dist/morphy-0.3.4-apple-silicon.zip`.
+The packaging script builds a release binary, includes the artwork and WebP license, applies and verifies a local signature, and writes `dist/Morphy.app` and `dist/morphy-0.3.5-apple-silicon.zip`.
 
 The newest ZIP is deliberately allowed through `.gitignore` so it can be committed and downloaded from GitHub. Other generated files and older local builds stay ignored. After packaging succeeds, the script updates that ZIP exception and the version and package links in this README.
 
